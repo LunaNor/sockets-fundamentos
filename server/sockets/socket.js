@@ -3,6 +3,11 @@
 /*=================================================================================================================================*/
 
 const { io } = require('../server');
+const { TicketControl } = require('../classes/ticket-control');
+
+// Creamos un nuevo objeto para manipular los tickets
+const ticketControl = new TicketControl();
+
 
 /*=================================================================================================================================*/
 // Funciones de Socket, Logica
@@ -11,40 +16,41 @@ const { io } = require('../server');
 // Función para saber cuando un cliente se conecta
 io.on('connection', (client) => {
 
-    console.log('Usuario conectado');
+    /* Escucha el evento que para hacer el siguiente ticket */
+    client.on('siguienteTicket', (data, callback) => {
 
-    // Una vez conectado el client, envio un mensaje de bienvenida
-    client.emit('enviarMensaje', {
-
-        usuario: 'Admin',
-        mensaje: 'Bienvenido a esta aplicación'
+        callback(ticketControl.siguienteTicket());
 
     });
 
-    // En base al usuario que se conecto, esta funcion muestra cuando se desconecta
-    client.on('disconnect', () => {
-        console.log('Usuario desconectado');
+    /* Emite el actual ticket */
+    client.emit('estadoActual', {
+
+        actual: ticketControl.getUltimoTicket(),
+        ultimos4: ticketControl.getUltimos4()
+
     });
 
-    // Escuchar el cliente
-    client.on('enviarMensaje', (data, callback) => {
+    client.on('atenderTicket', (data, callback) => {
 
-        console.log(data);
+        if (!data.escritorio) {
 
-        client.broadcast.emit('enviarMensaje', data);
-
-        /* if (mensaje.usuario) {
-            callback({
-                resp: 'Todo salió bien!'
+            return callback({
+                err: true,
+                mensaje: 'El escritorio es necesario'
             });
-        } else {
-            callback({
-                resp: 'No se envió el usuario!!!!'
-            });
-        } */
+        }
 
+        /* Creo un nuevo ticket atendido */
+        let atenderTicket = ticketControl.atenderTicket(data.escritorio);
+
+        callback(atenderTicket);
+
+        //actualizar - notificar cambios en los ultimos 4
+        client.broadcast.emit('ultimos4', {
+            ultimos4: ticketControl.getUltimos4()
+        });
 
     });
-
 
 });
